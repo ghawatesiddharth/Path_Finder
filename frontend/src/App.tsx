@@ -1,10 +1,20 @@
+import { useEffect, useState } from 'react';
+
 import { AppProvider, useApp } from '@/store';
 import { AppShell } from '@/components/AppShell';
+
 import { DashboardPage } from '@/pages/DashboardPage';
 import { CoursesPage } from '@/pages/CoursesPage';
 import { PathPage } from '@/pages/PathPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { AssessmentPage } from '@/pages/AssessmentPage';
+import { AuthPage } from '@/pages/AuthPage';
+
+import {
+  getCurrentUser,
+  isAuthenticated,
+  logoutUser,
+} from '@/lib/authApi';
 
 function Router() {
   const { route } = useApp();
@@ -20,10 +30,42 @@ function Router() {
   );
 }
 
+function AuthenticatedApp({
+  onLogout,
+}: {
+  onLogout: () => void;
+}) {
+  useEffect(() => {
+    getCurrentUser().catch(() => {
+      logoutUser();
+      onLogout();
+    });
+  }, [onLogout]);
+
+  return <Router />;
+}
+
 function App() {
+  const [authenticated, setAuthenticated] =
+    useState<boolean>(() => isAuthenticated());
+
+  if (!authenticated) {
+    return (
+      <AuthPage
+        onLoginSuccess={() => {
+          setAuthenticated(true);
+        }}
+      />
+    );
+  }
+
   return (
     <AppProvider>
-      <Router />
+      <AuthenticatedApp
+        onLogout={() => {
+          setAuthenticated(false);
+        }}
+      />
     </AppProvider>
   );
 }

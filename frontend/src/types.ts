@@ -146,3 +146,44 @@ export interface GenerationParams {
   resourceMode: ResourceMode;
   youtubeApiKey: string | null;
 }
+// ===============================
+// Backend / API Types
+// ===============================
+
+export interface ApiUser {
+  id: string;
+  email: string;
+  is_active: boolean;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
+export interface ApiLearningPath {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  goal: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateLearningPathRequest {
+  title: string;
+  description?: string | null;
+  goal?: string | null;
+}

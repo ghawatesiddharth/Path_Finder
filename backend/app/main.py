@@ -1,34 +1,43 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.auth import router as auth_router
+from app.api.learning_paths import router as learning_paths_router
+
 
 app = FastAPI(
-    title="Pathfinder AI API",
-    description="AI-powered personalized learning path platform",
-    version="0.1.0",
+    title="Path Finder API",
+    description="Backend API for the Path Finder learning platform",
+    version="1.0.0",
 )
 
 
+# Frontend connection
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+# API routes
+app.include_router(auth_router)
+app.include_router(learning_paths_router)
+
+
 @app.get("/")
 def root():
     return {
-        "message": "Pathfinder AI API is running",
-        "version": "0.1.0",
+        "message": "Path Finder API is running"
     }
 
 
 @app.get("/health")
-def health_check():
+def health():
     return {
-        "status": "healthy",
-        "service": "pathfinder-backend",
+        "status": "healthy"
     }

@@ -1,8 +1,10 @@
 import type { UserProfile } from '@/types';
 import { SKILLS } from '@/lib/skillGraph';
 
-/** Blank starting profile — no fabricated name, streak, or progress.
- *  Everything here is 0/empty until the person actually generates a path. */
+/*
+ * Empty starting profile.
+ * No fake progress, streak, or generated learning path.
+ */
 export const emptyUser: UserProfile = {
   name: 'You',
   avatarInitials: 'Y',
@@ -17,7 +19,7 @@ export const emptyUser: UserProfile = {
   nextMonthActiveDays: [],
 };
 
-export const chatQuickSuggestions = [
+export const chatQuickSuggestions: string[] = [
   'I want to learn Java for placement',
   'DSA roadmap for coding interviews',
   'Learn Python for data science',
@@ -27,7 +29,7 @@ export const chatQuickSuggestions = [
 const DOMAIN_LABELS: Record<string, string> = {
   programming: 'Programming',
   data_science: 'Data Science',
-  web_dev: 'Web Dev',
+  web_dev: 'Web Development',
   cloud: 'Cloud',
   business: 'Business',
   design: 'Design',
@@ -44,13 +46,20 @@ const DOMAIN_ICONS: Record<string, string> = {
   custom: 'Sparkles',
 };
 
-/** Domain filter chips for the Path browse view — derived from the real
- *  skill taxonomy, not a hardcoded list tied to a persona. */
 export const pathDomainFilters = [
-  { id: 'all', label: 'All', icon: 'LayoutGrid' },
-  ...Array.from(new Set(Object.values(SKILLS).map((s) => s.domain))).map((d) => ({
-    id: DOMAIN_LABELS[d] ?? d,
-    label: DOMAIN_LABELS[d] ?? d,
-    icon: DOMAIN_ICONS[d] ?? 'Sparkles',
+  {
+    id: 'all',
+    label: 'All',
+    icon: 'LayoutGrid',
+  },
+
+  ...Array.from(
+    new Set(
+      Object.values(SKILLS).map((skill) => skill.domain)
+    )
+  ).map((domain) => ({
+    id: domain,
+    label: DOMAIN_LABELS[domain] ?? domain,
+    icon: DOMAIN_ICONS[domain] ?? 'Sparkles',
   })),
 ];
