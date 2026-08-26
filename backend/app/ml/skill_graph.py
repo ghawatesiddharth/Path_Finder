@@ -249,6 +249,29 @@ SUBTOPICS: dict[str, list[str]] = {
         "Android Activities and Intents", "Android RecyclerView",
         "Android App with Firebase/Room DB",
     ],
+    "data_science_capstone": [
+        "Framing a Data Science Problem Statement", "End-to-End EDA on a Real Dataset",
+        "Feature Engineering for a Capstone Project", "Model Selection and Comparison",
+        "Building a Results Dashboard (Streamlit/Power BI)",
+        "Writing Up and Presenting Data Science Findings",
+        "Deploying a Model as an API", "Portfolio-Ready Case Study Documentation",
+    ],
+    "fullstack_capstone": [
+        "Planning a Full-Stack App Architecture", "Designing the Database Schema",
+        "Building the REST API Layer", "Connecting Frontend to Backend",
+        "Authentication and Authorization End-to-End", "Deployment (Frontend + Backend + DB)",
+        "Writing Tests for a Full-Stack App", "Polishing UI/UX for a Portfolio Project",
+    ],
+    "business_analytics": [
+        "Business Analytics Fundamentals", "KPI and Metric Design",
+        "Data-Driven Decision Making", "Dashboarding for Business Stakeholders (Power BI/Tableau)",
+        "A/B Testing Basics", "Business Case Study Analysis",
+    ],
+    "entrepreneurship": [
+        "Ideation and Problem Validation", "Business Model Canvas",
+        "Market Research Basics", "MVP Planning and Lean Startup",
+        "Pitching and Fundraising Basics", "Unit Economics Fundamentals",
+    ],
 }
 
 

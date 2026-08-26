@@ -16,10 +16,8 @@ h11==0.16.0
 httptools==0.8.0
 httpx==0.28.1
 idna==3.19
-joblib==1.5.3
 Mako==1.4.1
 MarkupSafe==3.0.3
-numpy==2.4.4
 psycopg==3.3.4
 psycopg-binary==3.3.4
 pyasn1==0.6.4
@@ -30,12 +28,9 @@ python-dotenv==1.2.3
 python-jose==3.5.0
 PyYAML==6.0.3
 rsa==4.9.1
-scikit-learn==1.8.0
-scipy==1.17.1
 six==1.17.0
 SQLAlchemy==2.0.52
 starlette==1.6.0
-threadpoolctl==3.6.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 tzdata==2026.3

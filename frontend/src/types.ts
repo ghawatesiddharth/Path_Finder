@@ -40,6 +40,11 @@ export interface Course {
   pathId?: string;
   durationHours: number;
   bookmarked: boolean;
+  provider?: string;
+  rating?: number | null;
+  isPaid?: boolean;
+  price?: number | null;
+  url?: string;
 }
 
 export interface PathTask {

@@ -89,9 +89,24 @@ export function CoursesPage() {
             <span className={`chip ${cm.tint} ${cm.text}`}>
               <res.icon size={13} /> {res.label}
             </span>
+            {selected.provider && (
+              <span className="chip border border-ink-200 text-ink-500 dark:border-ink-600">
+                {selected.provider}
+              </span>
+            )}
+            {typeof selected.rating === 'number' && (
+              <span className="chip border border-ink-200 text-ink-500 dark:border-ink-600">
+                ⭐ {selected.rating}
+              </span>
+            )}
             <span className="chip border border-ink-200 text-ink-500 dark:border-ink-600">
               <Clock size={13} /> {selected.durationHours}h
             </span>
+            {selected.isPaid !== undefined && (
+              <span className="chip border border-ink-200 text-ink-500 dark:border-ink-600">
+                {selected.isPaid ? (selected.price ? `$${selected.price}` : 'Paid') : 'Free'}
+              </span>
+            )}
             <span className="chip border border-ink-200 text-ink-500 dark:border-ink-600">
               {selected.progress}% complete
             </span>
@@ -129,6 +144,16 @@ export function CoursesPage() {
               <button className="btn-primary">
                 {selected.progress > 0 ? 'Continue' : 'Start course'}
               </button>
+            )}
+            {selected.url && (
+              <a
+                href={selected.url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-ghost"
+              >
+                Open on {selected.provider ?? 'provider site'}
+              </a>
             )}
           </div>
         </div>
@@ -230,6 +255,7 @@ export function CoursesPage() {
                   <div className="mt-2.5 flex items-center justify-between text-2xs text-ink-400">
                     <span className={`flex items-center gap-1 ${cm.text}`}>
                       <res.icon size={11} /> {res.label}
+                      {course.provider && <span className="text-ink-300">· {course.provider}</span>}
                     </span>
                     <span>{course.progress > 0 ? `${course.progress}%` : 'Not started'}</span>
                   </div>

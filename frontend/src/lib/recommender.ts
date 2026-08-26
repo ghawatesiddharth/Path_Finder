@@ -70,7 +70,7 @@ export function recommendCourses(
   skillId: string,
   opts: { level?: string; freeOnly?: boolean; topN?: number } = {},
 ): CourseRecord[] {
-  const { level, freeOnly = false, topN = 4 } = opts;
+  const { level, freeOnly = false, topN = 6 } = opts;
   const pool = COURSES.filter((c) => c.skills.includes(skillId));
 
   const applyFilters = (list: CourseRecord[]) => {

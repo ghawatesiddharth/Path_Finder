@@ -1,44 +1,28 @@
 import os
+from collections.abc import Generator
 
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-# Load variables from backend/.env
 load_dotenv()
 
-
-# PostgreSQL connection URL
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set in the .env file")
 
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-# SQLAlchemy engine
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
-# Database session factory
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False,
-)
-
-
-# Base class for all SQLAlchemy models
 class Base(DeclarativeBase):
     pass
 
 
-# Dependency used by FastAPI endpoints
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
-
     try:
         yield db
     finally:

@@ -56,9 +56,9 @@ export function AuthPage({ onLoginSuccess }: AuthPageProps) {
 
         onLoginSuccess();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const detail =
-        err?.response?.data?.detail ||
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
         'Something went wrong. Please try again.';
 
       setError(detail);

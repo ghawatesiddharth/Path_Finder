@@ -2,13 +2,7 @@ import httpx
 from fastapi import APIRouter, Depends
 
 from app.api.auth import get_current_user
-from app.core.config import (
-    ANTHROPIC_API_KEY,
-    GROQ_API_KEY,
-    OPENAI_API_KEY,
-    resolve_tutor_model,
-    resolve_tutor_provider,
-)
+from app.core.config import GROQ_API_KEY, TUTOR_MODEL
 from app.models.user import User
 from app.schemas.tutor import TutorChatRequest, TutorChatResponse
 
@@ -43,45 +37,13 @@ def _mock_reply(data: TutorChatRequest) -> str:
     ctx = _build_context_line(data.context)
     prefix = f"({ctx}) " if ctx else ""
     return (
-        f"{prefix}I don't have a live AI connection configured right now "
-        f"(no ANTHROPIC_API_KEY / GROQ_API_KEY / OPENAI_API_KEY set on the "
-        f"backend), so here's a placeholder response instead of a real answer "
-        f"to: \"{data.message.strip()}\". Set one of those environment "
-        f"variables and restart the API to get real tutoring."
+        f"{prefix}No GROQ_API_KEY is set on the backend, so here's a placeholder "
+        f"reply instead of a real answer to: \"{data.message.strip()}\". "
+        f"Add GROQ_API_KEY to backend/.env and restart the API to get real tutoring."
     )
 
 
-async def _call_anthropic(data: TutorChatRequest, model: str) -> str:
-    messages = [{"role": m.role, "content": m.text} for m in data.history]
-    messages.append({"role": "user", "content": data.message})
-    system = SYSTEM_PROMPT
-    ctx = _build_context_line(data.context)
-    if ctx:
-        system += " " + ctx
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": model,
-                "max_tokens": 600,
-                "system": system,
-                "messages": messages,
-            },
-        )
-        resp.raise_for_status()
-        payload = resp.json()
-        return "".join(
-            block.get("text", "") for block in payload.get("content", []) if block.get("type") == "text"
-        ).strip()
-
-
-async def _call_openai_compatible(data: TutorChatRequest, model: str, base_url: str, api_key: str) -> str:
+async def _call_groq(data: TutorChatRequest) -> str:
     system = SYSTEM_PROMPT
     ctx = _build_context_line(data.context)
     if ctx:
@@ -95,9 +57,9 @@ async def _call_openai_compatible(data: TutorChatRequest, model: str, base_url: 
 
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
-            f"{base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={"model": model, "messages": messages, "max_tokens": 600},
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={"model": TUTOR_MODEL, "messages": messages, "max_tokens": 600},
         )
         resp.raise_for_status()
         payload = resp.json()
@@ -109,33 +71,20 @@ async def tutor_chat(
     data: TutorChatRequest,
     current_user: User = Depends(get_current_user),
 ):
-    provider = resolve_tutor_provider()
-
-    if provider == "none":
+    if not GROQ_API_KEY:
         return TutorChatResponse(reply=_mock_reply(data), provider="none", mocked=True)
 
-    model = resolve_tutor_model(provider)
-
     try:
-        if provider == "anthropic":
-            reply = await _call_anthropic(data, model)
-        elif provider == "groq":
-            reply = await _call_openai_compatible(
-                data, model, "https://api.groq.com/openai/v1", GROQ_API_KEY,
-            )
-        else:  # openai
-            reply = await _call_openai_compatible(
-                data, model, "https://api.openai.com/v1", OPENAI_API_KEY,
-            )
-        return TutorChatResponse(reply=reply, provider=provider, mocked=False)
-    except Exception as exc:  # noqa: BLE001 - surface a friendly fallback, never 500 the chat UI
+        reply = await _call_groq(data)
+        return TutorChatResponse(reply=reply, provider="groq", mocked=False)
+    except Exception as exc:
         return TutorChatResponse(
             reply=(
-                f"I hit an error reaching the {provider} API ({exc.__class__.__name__}). "
+                f"I hit an error reaching Groq ({exc.__class__.__name__}). "
                 f"Here's a placeholder answer instead: for \"{data.message.strip()}\", "
                 f"try breaking it into smaller sub-questions and check the course/video "
                 f"for this stage — I'll be back once the connection is fixed."
             ),
-            provider=provider,
+            provider="groq",
             mocked=True,
         )

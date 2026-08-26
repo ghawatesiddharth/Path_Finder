@@ -88,7 +88,8 @@ export async function searchVideos(
     }));
     if (out.length) return out;
     return channelId ? [] : mockResults(query, maxResults);
-  } catch {
+  } catch (err) {
+    console.warn('YouTube search failed, showing placeholder results:', err);
     return mockResults(query, maxResults);
   }
 }
@@ -131,7 +132,8 @@ export async function searchPlaylists(
       thumbnail: it.snippet.thumbnails?.medium?.url ?? null,
       url: `https://www.youtube.com/playlist?list=${it.id.playlistId}`,
     }));
-  } catch {
+  } catch (err) {
+    console.warn('YouTube playlist search failed:', err);
     return [];
   }
 }
@@ -162,7 +164,8 @@ export async function getPlaylistVideos(
         url: `https://www.youtube.com/watch?v=${it.snippet.resourceId!.videoId}`,
         thumbnail: it.snippet.thumbnails?.medium?.url ?? it.snippet.thumbnails?.default?.url ?? null,
       }));
-  } catch {
+  } catch (err) {
+    console.warn('YouTube playlist videos fetch failed:', err);
     return [];
   }
 }

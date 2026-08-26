@@ -140,7 +140,7 @@ def generate_path(params: GenerationParams) -> dict:
     for i, sid in enumerate(order):
         smeta = SKILLS[sid]
         courses = recommend_courses(
-            sid, level=params.experience_level, free_only=params.free_only, top_n=3,
+            sid, level=params.experience_level, free_only=params.free_only, top_n=6,
         )
         subtopics = get_subtopics(sid, smeta.label)
 

@@ -1,9 +1,10 @@
-# PathFinder — personalized learning paths, backed by a real recommendation model
+# PathFinder — personalized learning paths with a real recommendation model
 
 PathFinder recommends a personalized, multi-platform learning path (Udemy +
 Coursera courses, ranked by a real model, plus YouTube videos) for whatever
 career track or goal a learner picks after signing up, tracks their progress
-task-by-task, and gives them an AI tutor to ask for help along the way.
+task-by-task, and gives them an AI tutor (powered by Groq) to ask for help
+along the way.
 
 ## Architecture
 
@@ -12,54 +13,38 @@ frontend/   React + TypeScript + Vite + Tailwind (UI, YouTube enrichment)
 backend/    FastAPI + PostgreSQL + scikit-learn (auth, ML recommender, AI tutor)
 ```
 
-The backend owns the ML: **goal matching, course ranking, and path
-sequencing**. The frontend owns two things the backend shouldn't: rendering,
-and pulling real YouTube videos client-side (so a user's personal YouTube API
-key never has to touch the server).
+The backend owns the ML: goal matching, course ranking, and path sequencing.
+The frontend owns rendering and pulling real YouTube videos client-side (so
+a user's personal YouTube API key never has to touch the server).
 
 ## What's in the recommendation engine (`backend/app/ml/`)
 
-1. **`skill_graph.py`** — a 28-skill taxonomy with a prerequisite DAG (e.g.
-   `deep_learning` requires `machine_learning` requires
-   `stats_foundations` + `data_analysis`), grouped into 9 career paths (Web
-   Dev, AI/ML, Data Science, Cybersecurity, Cloud/DevOps, Mobile,
-   UI/UX, Business, or "something else").
-2. **`recommender.py`** — real TF-IDF + cosine similarity (scikit-learn)
-   over the skill-keyword corpus to map a learner's free-text goal onto the
-   right skill, plus a weighted multi-factor course ranker over the bundled
-   1,349-course Udemy/Coursera dataset (rating 40%, popularity/enrollment
-   30%, price 15%, level-match 15%).
-3. **`path_generator.py`** — walks the prerequisite graph backwards from the
-   target skill to whatever the learner already knows, budgets stages across
-   their available days/weeks, and attaches the top-ranked courses + a
-   sub-topic curriculum to every stage.
+1. `skill_graph.py` — a skill taxonomy with a prerequisite DAG, grouped into
+   career paths (Web Dev, AI/ML, Data Science, Cybersecurity, Cloud/DevOps,
+   Mobile, UI/UX, Business, or "something else").
+2. `recommender.py` — TF-IDF + cosine similarity (scikit-learn) to map a
+   learner's free-text goal onto the right skill, plus a weighted
+   multi-factor course ranker over the bundled Udemy/Coursera dataset.
+3. `path_generator.py` — walks the prerequisite graph backwards from the
+   target skill to whatever the learner already knows, budgets stages
+   across their available days, and attaches ranked courses + a sub-topic
+   curriculum to every stage.
 
-## What happens end to end
+## End-to-end flow
 
-1. **Sign up** (`POST /auth/register`, `/auth/login`) — plain email/password
-   + JWT, nothing new here.
-2. **Onboarding** (`OnboardingPage.tsx` -> `POST /profile`) — name,
-   experience level, weekly hours, a career path pick (or free-text goal),
-   and any skills already known. This is required before the rest of the
-   app unlocks (`App.tsx` gates on `GET /profile`).
+1. **Sign up** — `POST /auth/register`, `/auth/login` — email/password + JWT.
+2. **Onboarding** (`OnboardingPage.tsx` → `POST /profile`) — name,
+   experience level, weekly hours, career path or free-text goal.
 3. **Generate a path** (`POST /recommendations/generate`) — runs the ML
-   model above and persists a `LearningPath` row (stages + ranked courses +
-   sub-topics, as a JSONB blob). The frontend then enriches each stage's
-   sub-topics with real YouTube videos client-side
-   (`lib/backendPathAdapter.ts` + the existing `lib/youtube.ts`) and PUTs
-   the enriched result back so it doesn't re-hit YouTube on reload.
-   **A user can call this as many times as they want** — every call creates
-   an independent path, so someone can be working through a Web Dev path
-   and a Data Science path at the same time (`PathPage.tsx` -> "browse" view
-   lists all of them; only one is "active"/shown on the dashboard).
-4. **Track progress** — checking off a task (`PATCH
-   /learning-paths/{id}/progress`) recomputes the path's completion % and
-   auto-unlocks the next stage once every task in the current one is done.
-5. **Ask the AI tutor** — the floating chat panel now calls `POST
-   /tutor/chat`, which talks to a real LLM (Anthropic, Groq, or OpenAI —
-   whichever key you set) with the learner's current path/stage as context.
-   With no key set, it returns a clearly-labeled mock reply instead of
-   failing, so the app still runs end-to-end for a demo.
+   model and persists a `LearningPath` row. The frontend enriches each
+   stage with real YouTube videos client-side, then PUTs the enriched
+   result back so it isn't re-fetched from YouTube on every reload.
+4. **Track progress** — checking off a task recomputes completion % and
+   auto-unlocks the next stage.
+5. **Ask the AI tutor** — the chat panel calls `POST /tutor/chat`, which
+   talks to Groq with the learner's current path/stage as context. With no
+   `GROQ_API_KEY` set, it returns a clearly-labeled mock reply instead of
+   failing, so the app still runs end-to-end without a key.
 
 ## Run it
 
@@ -67,51 +52,95 @@ key never has to touch the server).
 
 ```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate   # or your preferred env tool
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env   # fill in DATABASE_URL, SECRET_KEY, and (optionally) an LLM key
+cp .env.example .env               # fill in the values below
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Needs a running PostgreSQL instance matching `DATABASE_URL`. To power the AI
-tutor with real replies, set **one** of `ANTHROPIC_API_KEY`, `GROQ_API_KEY`,
-or `OPENAI_API_KEY` in `.env`.
+You need a running PostgreSQL instance. In `.env`, set:
+- `DATABASE_URL` — your Postgres connection string
+- `SECRET_KEY` — any long random string, used to sign JWTs
+- `GROQ_API_KEY` — free key from https://console.groq.com/keys (optional —
+  the tutor runs in mock mode without it)
 
 ### Frontend
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # VITE_API_URL, defaults to http://127.0.0.1:8000
+cp .env.example .env               # VITE_API_URL, defaults to http://127.0.0.1:8000
 npm run dev
 ```
 
 Optionally paste a free [YouTube Data API v3
 key](https://console.cloud.google.com/apis/library/youtube.googleapis.com)
-into the path-builder form — without one, video tasks fall back to
-clearly-labeled mock results so the app still runs.
+into the path-builder form to get real videos instead of placeholder
+results. If you do, make sure in Google Cloud Console that:
+- the **YouTube Data API v3** is enabled on that project, and
+- the key has no "HTTP referrer" restriction (or it includes
+  `http://localhost:5173/*`) — a mismatched restriction is the most common
+  cause of the key silently failing and falling back to placeholder results.
 
-## Known scope limits (useful for a report/viva)
+Without a key, video tasks fall back to clearly-labeled mock results so the
+app still runs end-to-end.
 
-- **Course dataset is static** (1,349 Udemy/Coursera courses bundled as
-  JSON, cleaned from `coursea_data.csv`/`udemy_course_data.csv`) rather than
-  live-scraped — the ranking model itself is real, but it's ranking a fixed
-  catalog. Swapping in a live API per-platform is the natural next step and
-  wouldn't require changing `recommender.py`'s scoring logic.
-- **Course "popularity" is used as a proxy for views/enrollments/likes**
-  since the source CSVs only expose one aggregate popularity number per
-  course, not separate views/likes/enrollment counts.
-- **Task IDs are namespaced per generated path** (`{pathId}__{skillId}_...`)
-  so the same skill appearing in two different paths (e.g. `python_basics`
-  in both a Data Science path and an AI/ML path) tracks completion
-  independently.
-- **The AI tutor has no long-term memory** — it's given the last ~8 chat
-  turns plus the learner's current path/stage as context on every call, not
-  a persisted conversation thread.
-- Java's sub-topic breakdown is the most exhaustive (24 topics); a few
-  others (Python, DSA, JS, ML) are expanded but not as deeply — see
-  `SUBTOPICS` in `backend/app/ml/skill_graph.py` to extend any skill.
-- `npm run build` reports one bundle-size warning (`courses.json` pushes the
-  main chunk to ~590KB) — not an error, just a Vite suggestion to
-  code-split later.
+## Troubleshooting: "Could not reach the recommendation service"
+
+This message means the frontend's `POST /recommendations/generate` call
+never got a response. It is a **connection problem, not a bug in the
+recommendation logic** — the ML code only runs after the request reaches
+the backend.
+
+Fastest path to the answer: from `backend/` (with your venv active), run
+
+```bash
+python check_setup.py
+```
+
+It checks `.env`, the DB connection, migrations, the course catalog, and
+runs a sample path generation end-to-end, stopping at the first thing
+that's actually broken. Or work through it manually in this order:
+
+1. **Is the backend actually running?** Open
+   `http://127.0.0.1:8000/health` in your browser. If it doesn't load,
+   your `uvicorn app.main:app --reload` process either isn't running or
+   crashed on startup — check that terminal for a Python traceback. The
+   two most common startup crashes are a missing `.env` (see step 2) and
+   Postgres not being reachable (see step 3).
+2. **Does `backend/.env` exist and have real values?** `.env.example` is
+   just a template — copy it to `.env` and fill in `DATABASE_URL` and
+   `SECRET_KEY`. If `.env` is missing entirely, the backend raises
+   `RuntimeError: DATABASE_URL is not set` on startup and never starts
+   listening, which is exactly what produces this error on the frontend.
+3. **Is PostgreSQL running and migrated?** This app requires a real
+   Postgres instance (it uses `UUID`/`JSONB` column types, not SQLite).
+   Confirm you can connect with the same credentials in `DATABASE_URL`,
+   then run `alembic upgrade head` from `backend/` to create the tables.
+   A connection refused / auth failed here also crashes the backend on
+   startup.
+4. **Is `VITE_API_URL` (frontend/.env) pointing at the right place?** It
+   should match wherever uvicorn is actually listening (default
+   `http://127.0.0.1:8000`). If you deployed the backend elsewhere, update
+   this and restart `npm run dev` (Vite only reads `.env` at startup).
+5. **Are you logged in?** `/recommendations/generate` requires a valid JWT.
+   If your token expired, log out and back in. As of this update, this
+   specific case now shows "Your session has expired" instead of the
+   generic message, so if you still see the generic message it's steps
+   1-4 (the backend is unreachable), not auth.
+6. **CORS**: `main.py` only allows `http://localhost:5173` by default. If
+   you run the frontend on a different port/host, add it to
+   `allow_origins` in `backend/app/main.py` or the browser will silently
+   block the response (visible as a CORS error in the browser console,
+   distinct from a connection failure).
+
+## Known scope limits
+
+- Course dataset is static (bundled as JSON) rather than live-scraped — the
+  ranking model itself is real, but it ranks a fixed catalog.
+- Course "popularity" is a proxy for views/enrollment, since the source
+  data only exposes one aggregate popularity number per course.
+- The AI tutor has no long-term memory — it's given the last few chat turns
+  plus the learner's current path/stage as context on every call.

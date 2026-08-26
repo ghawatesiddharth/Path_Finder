@@ -718,9 +718,31 @@ export function AppProvider({
         setRoute('path');
       } catch (err) {
         console.error('Failed to generate learning path:', err);
-        setLastGenerationNote(
-          'Could not reach the recommendation service. Make sure the backend is running and you are logged in.',
-        );
+        const axiosErr = err as {
+          response?: { status?: number; data?: { detail?: string } };
+          request?: unknown;
+        };
+        const status = axiosErr?.response?.status;
+        const detail = axiosErr?.response?.data?.detail;
+
+        let message: string;
+        if (detail) {
+          // Backend responded with a specific error (validation, etc.)
+          message = detail;
+        } else if (status === 401) {
+          message = 'Your session has expired. Please log in again to generate a path.';
+        } else if (axiosErr?.response) {
+          // Backend responded but with no usable detail (500, etc.)
+          message = `The recommendation service returned an error (status ${status ?? 'unknown'}). Check the backend logs for details.`;
+        } else if (axiosErr?.request) {
+          // Request was sent but no response came back at all — the classic
+          // "backend isn't running" case.
+          message =
+            'Could not reach the recommendation service. Make sure the backend server is running (uvicorn) and reachable at the configured API URL, and that you are logged in.';
+        } else {
+          message = 'Something went wrong while generating your path. Please try again.';
+        }
+        setLastGenerationNote(message);
       } finally {
         setGenerating(false);
       }

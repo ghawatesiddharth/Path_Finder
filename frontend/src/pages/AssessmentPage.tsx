@@ -30,7 +30,6 @@ export function AssessmentPage() {
     const q = active.questions[currentQ];
     const selected = answers[q.id];
     const isAnswered = selected !== undefined;
-    const isCorrect = selected === q.correctIndex;
     const score = active.questions.reduce((acc, question) => acc + (answers[question.id] === question.correctIndex ? 1 : 0), 0);
     const allAnswered = active.questions.every((question) => answers[question.id] !== undefined);
     const passed = score >= Math.ceil(active.questions.length * 0.7);

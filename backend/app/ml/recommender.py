@@ -24,12 +24,10 @@ from __future__ import annotations
 import json
 import math
 import re
+from collections import Counter
 from dataclasses import dataclass, asdict
 from functools import lru_cache
 from pathlib import Path
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 from app.ml.skill_graph import SKILLS
 
@@ -84,16 +82,29 @@ def _skill_corpus() -> tuple[list[str], list[str]]:
 
 
 @lru_cache(maxsize=1)
-def _vectorizer_and_matrix():
+def _skill_vectors():
     ids, docs = _skill_corpus()
-    vectorizer = TfidfVectorizer(
-        tokenizer=_tokenize,
-        preprocessor=lambda x: x,
-        token_pattern=None,
-        lowercase=True,
+    token_counts = [Counter(_tokenize(doc)) for doc in docs]
+    document_frequency = Counter(
+        token for counts in token_counts for token in counts
     )
-    matrix = vectorizer.fit_transform(docs)
-    return vectorizer, matrix, ids
+    document_count = len(token_counts)
+    vectors = []
+    for counts in token_counts:
+        vectors.append({
+            token: count * math.log((1 + document_count) / (1 + document_frequency[token]))
+            for token, count in counts.items()
+        })
+    return ids, vectors
+
+
+def _cosine_similarity(left: dict[str, float], right: dict[str, float]) -> float:
+    left_norm = math.sqrt(sum(value * value for value in left.values()))
+    right_norm = math.sqrt(sum(value * value for value in right.values()))
+    if not left_norm or not right_norm:
+        return 0.0
+    dot = sum(value * right.get(token, 0.0) for token, value in left.items())
+    return dot / (left_norm * right_norm)
 
 
 def parse_goal(goal_text: str, top_k: int = 3) -> list[tuple[str, float]]:
@@ -106,9 +117,13 @@ def parse_goal(goal_text: str, top_k: int = 3) -> list[tuple[str, float]]:
     if not goal_text or not goal_text.strip():
         return []
 
-    vectorizer, matrix, ids = _vectorizer_and_matrix()
-    goal_vec = vectorizer.transform([goal_text])
-    sims = cosine_similarity(goal_vec, matrix).flatten()
+    ids, vectors = _skill_vectors()
+    goal_counts = Counter(_tokenize(goal_text))
+    goal_vec = {
+        token: count * math.log((1 + len(vectors)) / (1 + sum(token in vector for vector in vectors)))
+        for token, count in goal_counts.items()
+    }
+    sims = [_cosine_similarity(goal_vec, vector) for vector in vectors]
 
     goal_lower = f" {goal_text.lower()} "
     scored: list[tuple[str, float]] = []
@@ -177,7 +192,15 @@ def score_course(course: CourseRecord, *, level: str | None, free_only: bool,
 
 
 def recommend_courses(skill_id: str, *, level: str | None = None,
-                       free_only: bool = False, top_n: int = 4) -> list[dict]:
+                       free_only: bool = False, top_n: int = 6) -> list[dict]:
+    """
+    Ranks every course tagged with skill_id and returns the top_n. Beyond
+    plain score ranking, this guarantees provider diversity: if the pool
+    contains both Udemy and Coursera courses, at least one of each (that
+    survives the filters) is included even if one provider would otherwise
+    dominate purely on score -- so the learner always sees a Udemy pick
+    alongside a Coursera pick, not just whichever provider scores highest.
+    """
     courses = load_courses()
     pool = [c for c in courses if skill_id in c.skills]
 
@@ -203,8 +226,27 @@ def recommend_courses(skill_id: str, *, level: str | None = None,
     ]
     scored.sort(key=lambda x: x[1], reverse=True)
 
+    ordered: list[tuple[CourseRecord, float]] = list(scored[:top_n])
+    chosen_ids = {id(c) for c, _ in ordered}
+
+    # Provider-diversity guarantee: make sure every provider present in the
+    # filtered pool has at least one representative in the final list.
+    providers_present = {c.provider for c in filtered}
+    providers_included = {c.provider for c, _ in ordered}
+    for provider in providers_present - providers_included:
+        best_for_provider = max(
+            (pair for pair in scored if pair[0].provider == provider),
+            key=lambda pair: pair[1],
+            default=None,
+        )
+        if best_for_provider and id(best_for_provider[0]) not in chosen_ids:
+            ordered.append(best_for_provider)
+            chosen_ids.add(id(best_for_provider[0]))
+
+    ordered.sort(key=lambda x: x[1], reverse=True)
+
     results = []
-    for course, s in scored[:top_n]:
+    for course, s in ordered:
         d = course.to_dict()
         d["match_score"] = round(s, 4)
         results.append(d)

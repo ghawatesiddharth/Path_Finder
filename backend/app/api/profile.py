@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
-from app.db.session import get_db
+from app.db.database import get_db
 from app.ml.skill_graph import CAREER_PATHS, SKILLS
 from app.models.profile import Profile
 from app.models.user import User

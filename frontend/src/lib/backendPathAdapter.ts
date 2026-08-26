@@ -76,25 +76,32 @@ export async function adaptBackendPath(
     content.stages.map(async (stage, i): Promise<PathStage> => {
       const tasks = await enrichStage(stage, pathId, params.resourceMode, params.youtubeApiKey);
 
-      if (stage.courses.length) {
-        const best = stage.courses[0];
+      // Surface every ranked course for this stage (not just the top pick) so
+      // both Udemy and Coursera recommendations are visible on the Courses
+      // page, each clearly labeled with its provider.
+      stage.courses.forEach((c, ci) => {
         coursesOut.push({
-          id: `${pathId}_${stage.skill_id}_c`,
-          title: best.title,
-          description: `Recommended ${stage.title} course, ranked by our model on rating, popularity, price, and level match.`,
+          id: `${pathId}_${stage.skill_id}_c${ci}`,
+          title: c.title,
+          description: `Recommended ${stage.title} course on ${c.provider}, ranked by our model on rating, popularity, price, and level match.`,
           icon: DOMAIN_ICON[stage.domain ?? content.domain] ?? 'BookOpen',
           subject: stage.title,
           subjectColor: content.color,
           resourceType: 'course',
-          status: i === 0 ? 'in-progress' : 'recommended',
+          status: i === 0 && ci === 0 ? 'in-progress' : 'recommended',
           progress: 0,
           prerequisites: stage.prerequisites,
           whyRecommended: stage.why,
           pathId,
-          durationHours: best.duration_hours ?? 8,
+          durationHours: c.duration_hours ?? 8,
           bookmarked: false,
+          provider: c.provider,
+          rating: c.rating,
+          isPaid: c.is_paid,
+          price: c.price,
+          url: c.url,
         });
-      }
+      });
 
       skillsOut.push({
         id: `${pathId}_${stage.skill_id}`,
@@ -164,25 +171,29 @@ export function hydrateBackendPath(backendPath: BackendLearningPath): AdaptedRes
   const stages: PathStage[] = content.stages.map((stage, i) => {
     const tasks = stage.tasks ?? [];
 
-    if (stage.courses.length) {
-      const best = stage.courses[0];
+    stage.courses.forEach((c, ci) => {
       coursesOut.push({
-        id: `${pathId}_${stage.skill_id}_c`,
-        title: best.title,
-        description: `Recommended ${stage.title} course, ranked by our model on rating, popularity, price, and level match.`,
+        id: `${pathId}_${stage.skill_id}_c${ci}`,
+        title: c.title,
+        description: `Recommended ${stage.title} course on ${c.provider}, ranked by our model on rating, popularity, price, and level match.`,
         icon: DOMAIN_ICON[stage.domain ?? content.domain] ?? 'BookOpen',
         subject: stage.title,
         subjectColor: content.color,
         resourceType: 'course',
-        status: i === 0 ? 'in-progress' : 'recommended',
+        status: i === 0 && ci === 0 ? 'in-progress' : 'recommended',
         progress: 0,
         prerequisites: stage.prerequisites,
         whyRecommended: stage.why,
         pathId,
-        durationHours: best.duration_hours ?? 8,
+        durationHours: c.duration_hours ?? 8,
         bookmarked: false,
+        provider: c.provider,
+        rating: c.rating,
+        isPaid: c.is_paid,
+        price: c.price,
+        url: c.url,
       });
-    }
+    });
 
     skillsOut.push({
       id: `${pathId}_${stage.skill_id}`,
