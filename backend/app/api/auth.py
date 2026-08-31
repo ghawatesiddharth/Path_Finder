@@ -3,20 +3,28 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
-
 from sqlalchemy.orm import Session
 
+from app.core.security import (
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
 from app.db.database import get_db
 from app.models.user import User
-from app.core.security import decode_access_token
 from app.schemas.auth import (
-    RegisterRequest,
     LoginRequest,
+    RegisterRequest,
     TokenResponse,
     UserResponse,
 )
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+router = APIRouter(
+    prefix="/auth",
+    tags=["Authentication"],
+)
 
 security = HTTPBearer()
 
@@ -42,8 +50,6 @@ def register(
             detail="Email already registered",
         )
 
-    from app.core.security import hash_password
-
     user = User(
         email=data.email,
         password_hash=hash_password(data.password),
@@ -65,8 +71,6 @@ def login(
     data: LoginRequest,
     db: Session = Depends(get_db),
 ):
-    from app.core.security import verify_password, create_access_token
-
     user = (
         db.query(User)
         .filter(User.email == data.email)
@@ -79,7 +83,10 @@ def login(
             detail="Invalid email or password",
         )
 
-    if not verify_password(data.password, user.password_hash):
+    if not verify_password(
+        data.password,
+        user.password_hash,
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -104,13 +111,16 @@ def login(
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials = Depends(
+        security
+    ),
     db: Session = Depends(get_db),
 ):
     token = credentials.credentials
 
     try:
         payload = decode_access_token(token)
+
         user_id = payload.get("sub")
 
         if not user_id:
